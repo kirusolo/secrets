@@ -4,15 +4,25 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-
-const md5 = require("md5");
-
-console.log(md5("1234"));
+const session = require("express-session");
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
 
 const app = express();
 app.use(express.static("public"));
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(
+  session({
+    secret: "Our little secret",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 mongoose.connect("mongodb://localhost:27017/userDB", {
   useNewUrlParser: true,
@@ -23,7 +33,13 @@ const userSchema = new mongoose.Schema({
   password: String,
 });
 
+userSchema.plugin(passportLocalMongoose);
+
 const User = new mongoose.model("User", userSchema);
+
+passport.use(User.createStrategy());
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 app.get("/", function (req, res) {
   res.render("home");
@@ -37,39 +53,9 @@ app.get("/register", function (req, res) {
   res.render("register");
 });
 
-app.post("/register", async function (req, res) {
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password),
-  });
+app.post("/register", async function (req, res) {});
 
-  try {
-    await newUser.save();
-    res.render("secrets");
-  } catch (err) {
-    console.log(err);
-  }
-});
-
-app.post("/login", async (req, res) => {
-  const username = req.body.username;
-  const password = md5(req.body.password);
-
-  try {
-    const foundUser = await User.findOne({ email: username });
-    if (foundUser && foundUser.password === password) {
-      res.render("secrets"); // Render the "secrets" view
-    } else {
-      // Handle incorrect username or password
-      console.log("Incorrect username or password");
-      // Handle incorrect credentials
-    }
-  } catch (err) {
-    // Handle any errors that occurred during the query
-    console.log("Error finding user:", err);
-    // Handle the error, maybe show an error message on the login page
-  }
-});
+app.post("/login", async (req, res) => {});
 
 app.listen(4050, function () {
   console.log("server started on port 4050");
